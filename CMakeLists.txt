@@ -169,6 +169,13 @@ if(WIN32)
       "static void dump_token(JSParseState *s,"
       QUICKJS_C_SOURCE
       "${QUICKJS_C_SOURCE}")
+  # MSVC treats this 3-bit enum bitfield as signed, which turns
+  # JS_CLOSURE_GLOBAL* into negative values and breaks closure dispatch.
+  string(REPLACE
+      "    JSClosureTypeEnum closure_type : 3;"
+      "    uint8_t closure_type : 3;"
+      QUICKJS_C_SOURCE
+      "${QUICKJS_C_SOURCE}")
   string(REPLACE
       "JS_FreeValue(ctx, (JSValue)argv[0]);"
       "JS_FreeValue(ctx, argv[0]);"
