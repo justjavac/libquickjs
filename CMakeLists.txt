@@ -43,15 +43,19 @@ string(REPLACE "-" "." QUICKJS_CMAKE_VERSION "${QUICKJS_UPSTREAM_VERSION}")
 
 set(GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated")
 set(GENERATED_INCLUDE_DIR "${GENERATED_DIR}/include")
+set(GENERATED_COMPAT_INCLUDE_DIR "${GENERATED_DIR}/compat-include")
 set(PATCHED_SOURCE_DIR "${GENERATED_DIR}/quickjs")
 
-file(MAKE_DIRECTORY "${GENERATED_INCLUDE_DIR}/sys")
+file(MAKE_DIRECTORY "${GENERATED_INCLUDE_DIR}")
 file(MAKE_DIRECTORY "${PATCHED_SOURCE_DIR}")
 
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/compat/sys/time.h"
-    "${GENERATED_INCLUDE_DIR}/sys/time.h"
-    COPYONLY)
+if(WIN32)
+  file(MAKE_DIRECTORY "${GENERATED_COMPAT_INCLUDE_DIR}/sys")
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/compat/sys/time.h"
+      "${GENERATED_COMPAT_INCLUDE_DIR}/sys/time.h"
+      COPYONLY)
+endif()
 
 file(READ "${quickjs_upstream_SOURCE_DIR}/cutils.h" CUTILS_H_SOURCE)
 file(READ "${quickjs_upstream_SOURCE_DIR}/quickjs.h" QUICKJS_H_SOURCE)
@@ -203,6 +207,10 @@ target_include_directories(
       "$<BUILD_INTERFACE:${GENERATED_INCLUDE_DIR}>"
       "$<BUILD_INTERFACE:${quickjs_upstream_SOURCE_DIR}>"
       "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/quickjs>")
+
+if(WIN32)
+  target_include_directories(quickjs PRIVATE "${GENERATED_COMPAT_INCLUDE_DIR}")
+endif()
 
 target_compile_definitions(
     quickjs
