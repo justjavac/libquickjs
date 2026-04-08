@@ -1,0 +1,102 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-24.04
+            artifact_name: libquickjs-linux-x64
+            generator: Ninja
+            osx_architectures: ""
+            macos_deployment_target: ""
+            link_notes: "Extra link flag for consumers: -lm"
+          - name: windows-x64
+            os: windows-2025
+            artifact_name: libquickjs-windows-x64
+            generator: Ninja
+            osx_architectures: ""
+            macos_deployment_target: ""
+            link_notes: "MSVC-compatible build; atomics support disabled; quickjs-libc.c excluded"
+          - name: macos-universal
+            os: macos-latest
+            artifact_name: libquickjs-macos-universal
+            generator: Ninja
+            osx_architectures: "x86_64;arm64"
+            macos_deployment_target: "11.0"
+            link_notes: "No extra system libraries usually required for the core archive"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          cmake --version
+          ninja --version
+
+      - name: Setup MSVC
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          $cmakeArgs = @(
+            "-S", ".",
+            "-B", "build",
+            "-G", "${{ matrix.generator }}",
+            "-D", "CMAKE_BUILD_TYPE=Release"
+          )
+
+          if ("${{ matrix.osx_architectures }}") {
+            $cmakeArgs += @("-D", "CMAKE_OSX_ARCHITECTURES=${{ matrix.osx_architectures }}")
+          }
+
+          if ("${{ matrix.macos_deployment_target }}") {
+            $cmakeArgs += @("-D", "CMAKE_OSX_DEPLOYMENT_TARGET=${{ matrix.macos_deployment_target }}")
+          }
+
+          cmake @cmakeArgs
+
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Release
+
+      - name: Install
+        shell: pwsh
+        run: cmake --install build --config Release --prefix stage
+
+      - name: Write artifact metadata
+        shell: pwsh
+        run: |
+          @"
+          target=${{ matrix.name }}
+          quickjs_git_tag=d7ae12ae71dfd6ab2997527d295014a8996fa0f9
+          quickjs_version=2025-09-13
+          library_dir=lib
+          include_dir=include/quickjs
+          exported_header=quickjs.h
+          ${{ matrix.link_notes }}
+          "@ | Set-Content -Path stage/BUILD_INFO.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: stage
+          if-no-files-found: error
+          retention-days: 30
+
