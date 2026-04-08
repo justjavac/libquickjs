@@ -1,0 +1,9 @@
+/bin/
+/build/
+/build-local/
+/build-probe/
+/lib/
+/quickjs-upstream/
+/stage/
+/stage-local/
+
